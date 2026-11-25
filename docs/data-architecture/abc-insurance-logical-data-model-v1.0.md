@@ -9,6 +9,7 @@ with [dbdiagram.io](https://dbdiagram.io/).
 ## Tables and Relationships
 
 ``` text
+
 Table CUSTOMER {
   customer_id number(32) [primary key]
   customer_first_name varchar2(250)
@@ -23,11 +24,10 @@ Table CUSTOMER {
   updated_at datetime
 }
 
-
 Table POLICY {
   policy_id number(32) [primary key]
   customer_id number(32) [not null]
-  policy_number varchar2(100) [not null]
+  policy_number varchar2(100) [not null, unique]
   policy_type varchar2(100)
   policy_start_date datetime
   policy_end_date datetime
@@ -41,7 +41,7 @@ Table POLICY {
 Table CLAIM {
   claim_id number(32) [primary key]
   policy_id number(32) [not null]
-  claim_number varchar2(100) [not null]
+  claim_number varchar2(100) [not null, unique]
   claim_date datetime
   reported_date datetime
   incident_date datetime
@@ -57,12 +57,19 @@ Table CLAIM_DOCUMENT {
   document_type_id number(32) [not null]
   document_name varchar2(250)
   document_description varchar2(1000)
+  document_version number(10,0) [not null]
+  is_latest_version varchar2(1) [not null]
+  supersedes_document_id number(32)
   s3_bucket_name varchar2(250)
   s3_object_key varchar2(1000) [not null]
   document_format varchar2(50)
   uploaded_at datetime
   processing_status varchar2(50)
   created_at datetime
+
+  indexes {
+    (claim_id, document_type_id, document_version) [unique]
+  }
 }
 
 Table CLAIM_INVESTIGATION {
@@ -80,12 +87,16 @@ Table CLAIM_INVESTIGATION {
 Table CLAIM_ASSESSMENT {
   assessment_id number(32) [primary key]
   claim_id number(32) [not null]
-  assessment_version number(10,0)
+  assessment_version number(10,0) [not null]
   assessed_amount number(18,2)
   assessment_notes varchar2(2000)
   assessed_by varchar2(250)
   assessment_date datetime
   created_at datetime
+
+  indexes {
+    (claim_id, assessment_version) [unique]
+  }
 }
 
 Table CLAIM_DECISION {
@@ -105,7 +116,7 @@ Table PAYMENT {
   payment_id number(32) [primary key]
   claim_id number(32) [not null]
   payment_status_id number(32) [not null]
-  payment_reference_number varchar2(100)
+  payment_reference_number varchar2(100) [unique]
   payment_amount number(18,2)
   payment_date datetime
   payment_method varchar2(50)
@@ -128,7 +139,7 @@ Table CLAIM_STATUS {
 
 Table DOCUMENT_TYPE {
   document_type_id number(32) [primary key]
-  document_type_code varchar2(50) [not null]
+  document_type_code varchar2(50) [not null, unique]
   document_type_name varchar2(250)
   document_description varchar2(500)
   active_indicator varchar2(1)
@@ -136,7 +147,7 @@ Table DOCUMENT_TYPE {
 
 Table PAYMENT_STATUS {
   payment_status_id number(32) [primary key]
-  payment_status_code varchar2(50) [not null]
+  payment_status_code varchar2(50) [not null, unique]
   payment_status_name varchar2(250)
   payment_status_description varchar2(500)
   active_indicator varchar2(1)
@@ -153,6 +164,9 @@ Ref: CLAIM_DOCUMENT.claim_id > CLAIM.claim_id
 
 // DOCUMENT_TYPE to CLAIM_DOCUMENT: One-to-many
 Ref: CLAIM_DOCUMENT.document_type_id > DOCUMENT_TYPE.document_type_id
+
+// Previous document version
+Ref: CLAIM_DOCUMENT.supersedes_document_id > CLAIM_DOCUMENT.document_id
 
 // CLAIM to CLAIM_INVESTIGATION: One-to-many
 Ref: CLAIM_INVESTIGATION.claim_id > CLAIM.claim_id
@@ -171,6 +185,7 @@ Ref: PAYMENT.payment_status_id > PAYMENT_STATUS.payment_status_id
 
 // CLAIM to CLAIM_STATUS: One-to-many
 Ref: CLAIM_STATUS.claim_id > CLAIM.claim_id
+
 ```
 
 ## Usage
